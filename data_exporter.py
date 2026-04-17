@@ -108,11 +108,41 @@ class JSONExporter:
         logger.info(f"JSON file saved: {self.path} ({len(self._records)} records)")
 
 
+# ── MongoDB ───────────────────────────────────────────────────────────────────
+class MongoDBExporter:
+    """Exports records to a MongoDB collection."""
+
+    def __init__(self):
+        if not config.DATABASE_URL:
+            logger.error("DATABASE_URL not set. MongoDB export will fail.")
+            self._client = None
+            return
+
+        from pymongo import MongoClient
+
+        self._client = MongoClient(config.DATABASE_URL)
+        self._db = self._client[config.MONGODB_DB_NAME]
+        self._collection = self._db[config.MONGODB_COLLECTION]
+        logger.info(f"MongoDB output → {config.MONGODB_DB_NAME}.{config.MONGODB_COLLECTION}")
+
+    def write(self, record: dict) -> None:
+        if self._client:
+            # We use update_one with upsert=True to avoid duplicates if re-running
+            query = {"message_id": record["message_id"], "channel_id": record["channel_id"]}
+            self._collection.update_one(query, {"$set": record}, upsert=True)
+
+    def close(self) -> None:
+        if self._client:
+            self._client.close()
+            logger.info("MongoDB connection closed.")
+
+
 # ── Factory ───────────────────────────────────────────────────────────────────
 EXPORTERS = {
     "jsonl": JSONLExporter,
     "csv": CSVExporter,
     "json": JSONExporter,
+    "mongodb": MongoDBExporter,
 }
 
 

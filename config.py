@@ -52,4 +52,9 @@ SKIP_MEDIA_ONLY = True             # Skip messages that are only media (no text)
 
 # ─── Output Settings ─────────────────────────────────────────────────────────
 OUTPUT_DIR = "data"                # Directory to save scraped data
-OUTPUT_FORMATS = ["jsonl", "csv"]  # Supported: "jsonl", "csv", "json"
+OUTPUT_FORMATS = ["jsonl", "csv", "mongodb"]  # Supported: "jsonl", "csv", "json", "mongodb"
+
+# ─── Database Settings ───────────────────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASR_URL")
+MONGODB_DB_NAME = "telegram_news"
+MONGODB_COLLECTION = "messages"
