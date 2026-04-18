@@ -57,7 +57,7 @@ OUTPUT_FORMATS = ["mongodb"]  # Only saving to database as requested
 # ─── Database Settings ───────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "telegram_news")
-MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "messages")
+MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "news")
 
 # ─── Cloudinary Settings ─────────────────────────────────────────────────────
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")

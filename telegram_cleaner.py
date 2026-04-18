@@ -1,6 +1,6 @@
 """
-Telegram Message Cleaner
-Extracts clean news text from Telegram messages by removing:
+Telegram News Cleaner
+Extracts clean news text from Telegram news content by removing:
   - URLs
   - Emojis
   - Hashtags
@@ -52,7 +52,7 @@ _MULTI_NEWLINE_RE = re.compile(r'\n\s*\n+')
 
 def clean_telegram_message(telegram_message: str) -> dict:
     """
-    Clean a Telegram message by removing URLs, emojis, hashtags,
+    Clean Telegram news content by removing URLs, emojis, hashtags,
     mentions, symbols, and CTA lines.  Returns a dict with cleaned text.
     """
     text = telegram_message

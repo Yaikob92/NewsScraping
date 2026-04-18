@@ -2,8 +2,8 @@
 Main Pipeline — Telegram News Scraping & Cleaning
 Orchestrates:
   1. Connecting to Telegram
-  2. Scraping messages from configured channels
-  3. Cleaning each message
+  2. Scraping news from configured channels
+  3. Cleaning each item
   4. Exporting cleaned data to ML-ready formats
 
 Usage

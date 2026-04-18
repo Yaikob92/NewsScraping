@@ -1,6 +1,6 @@
 """
 Data Exporter
-Saves cleaned Telegram messages to the database.
+Saves cleaned Telegram news to the database.
 """
 
 import logging
@@ -54,8 +54,20 @@ class MongoDBExporter:
 
     def write(self, record: dict) -> None:
         if self._client:
-            # We use update_one with upsert=True to avoid duplicates if re-running
-            query = {"message_id": record["message_id"], "channel.id": record["channel"]["id"]}
+            # 1. Content-based deduplication: Skip if news_text already exists in DB
+            # We only do this for significant news text (e.g. > 50 chars) to avoid 
+            # skipping standard short updates that might look similar.
+            current_text = record.get("news_text", "")
+            if len(current_text) > 50:
+                existing = self._collection.find_one({"news_text": current_text})
+                if existing:
+                    # Update potentially outdated views/metadata but keep original content
+                    # Or just skip to avoid spam. We'll skip for true deduplication.
+                    logger.debug(f"Skipping duplicate news content: {record['message_id']}")
+                    return
+
+            # 2. ID-based Upsert (Prevents duplicates of the same exact message)
+            query = {"message_id": record["message_id"], "channel_id": record["channel_id"]}
             self._collection.update_one(query, {"$set": record}, upsert=True)
 
     def close(self) -> None:

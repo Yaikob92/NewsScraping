@@ -106,6 +106,11 @@ The cleaner removes:
 - ✂️ **CTA lines** — "Join", "Subscribe", "Share", "ተቀላቀሉን"
 - ✂️ **Symbols** — arrows, dingbats, misc Unicode
 
+### Media Handling
+- 📸 **Images** — Automatic upload to Cloudinary
+- 🎥 **Videos** — Support for video content (uploaded as video resource)
+- 📄 **Documents** — Other media types are also processed via Cloudinary's auto-detection
+
 It preserves:
 - ✅ Latin characters
 - ✅ **Ethiopic / Amharic / Ge'ez** characters

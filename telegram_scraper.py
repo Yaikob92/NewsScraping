@@ -101,31 +101,24 @@ class TelegramScraper:
         if "http" in raw_text or "www." in raw_text or "t.me" in raw_text:
             has_links = True
 
-        # Reactions (Likes)
-        like_count = 0
-        likes = []
-        if msg.reactions:
-            for r in msg.reactions.results:
-                like_count += r.count
-                likes.append({
-                    "emoticon": getattr(r.reaction, 'emoticon', str(r.reaction)),
-                    "count": r.count
-                })
+        # Reactions (Likes) - Set to None as per request
+        like_count = None
+        likes = None
 
-        # Replies (Comments)
-        comment_count = 0
-        if msg.replies:
-            comment_count = getattr(msg.replies, 'replies', 0)
+        # Replies (Comments) - Set to None as per request
+        comment_count = None
 
-        # Media (Images)
+        # Media (Images, Videos, etc.)
         media_url = None
-        if msg.photo:
+        if msg.media:
             try:
                 from media_handler import upload_to_cloudinary
-                photo_bytes = await self.client.download_media(msg.photo, bytes)
-                if photo_bytes:
+                # Download the media. For large videos, this might be slow/memory-intensive.
+                # Cloudinary's "auto" resource type handles images, videos, and raw files.
+                media_bytes = await self.client.download_media(msg.media, bytes)
+                if media_bytes:
                     media_url = await upload_to_cloudinary(
-                        photo_bytes, 
+                        media_bytes, 
                         folder="news_media", 
                         public_id=f"msg_{channel.id}_{msg.id}"
                     )
@@ -136,12 +129,12 @@ class TelegramScraper:
             "message_id": msg.id,
             "text": raw_text,
             "date": msg.date.isoformat() if msg.date else None,
-            "views": getattr(msg, "views", 0) or 0,
-            "forwards": getattr(msg, "forwards", 0) or 0,
-            "repost": getattr(msg, "forwards", 0) or 0,
-            "likes": likes,
-            "like_count": like_count,
-            "comment_count": comment_count,
+            "views": None,
+            "forwards": None,
+            "repost": None,  # Set to None as per request
+            "likes": None,   # Set to None as per request
+            "like_count": None, # Set to None as per request
+            "comment_count": None, # Set to None as per request
             "media_url": media_url,
             "channel": {
                 "id": channel.id,
