@@ -2,3 +2,4 @@ telethon>=1.36.0
 cryptg>=0.4            # optional: speeds up Telethon's crypto operations
 python-dotenv>=1.0.0   # loads .env file into environment variables
 pymongo[srv]>=4.6.0     # MongoDB driver
+cloudinary>=1.36.0      # Cloud storage for images

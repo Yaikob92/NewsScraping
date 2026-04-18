@@ -39,22 +39,27 @@ if not API_ID or not API_HASH:
 # Add Telegram channel usernames (without @) or channel IDs.
 # Examples of Ethiopian news channels — replace with your targets.
 CHANNELS = [
-    # "example_news_channel",
-    # "another_channel",
-    # -1001234567890,          # numeric channel ID also works
+    "@tikvahethiopia",
+    "@tikvahethsport",
+    "@tikvahethmagazine",
+    "@EBCNEWSNOW",
 ]
 
 # ─── Scraping Settings ────────────────────────────────────────────────────────
-MESSAGES_PER_CHANNEL = 5000        # Max messages to fetch per channel
-BATCH_SIZE = 100                   # Messages fetched per API call (chunk_size)
-MIN_TEXT_LENGTH = 20               # Skip messages shorter than this (after cleaning)
-SKIP_MEDIA_ONLY = True             # Skip messages that are only media (no text)
+MESSAGES_PER_CHANNEL = int(os.getenv("MESSAGES_PER_CHANNEL", "5000"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))
+MIN_TEXT_LENGTH = int(os.getenv("MIN_TEXT_LENGTH", "20"))
+SKIP_MEDIA_ONLY = os.getenv("SKIP_MEDIA_ONLY", "True").lower() == "true"
 
 # ─── Output Settings ─────────────────────────────────────────────────────────
-OUTPUT_DIR = "data"                # Directory to save scraped data
-OUTPUT_FORMATS = ["jsonl", "csv", "mongodb"]  # Supported: "jsonl", "csv", "json", "mongodb"
+OUTPUT_FORMATS = ["mongodb"]  # Only saving to database as requested
 
 # ─── Database Settings ───────────────────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASR_URL")
-MONGODB_DB_NAME = "telegram_news"
-MONGODB_COLLECTION = "messages"
+DATABASE_URL = os.getenv("DATABASE_URL")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "telegram_news")
+MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "messages")
+
+# ─── Cloudinary Settings ─────────────────────────────────────────────────────
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")

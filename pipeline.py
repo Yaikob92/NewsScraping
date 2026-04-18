@@ -37,6 +37,7 @@ logger = logging.getLogger("pipeline")
 async def run_pipeline(
     channels: list | None = None,
     limit: int | None = None,
+    listen: bool = False,
 ) -> None:
     scraper = TelegramScraper()
 
@@ -61,21 +62,38 @@ async def run_pipeline(
     try:
         await scraper.connect()
 
-        async for raw_msg in scraper.scrape_all():
+        async def process_msg(raw_msg: dict):
+            nonlocal total, skipped, errors
             try:
                 # Clean the text
-                cleaned = clean_telegram_message(raw_msg["raw_text"])
-                news_text = cleaned["news_text"]
+                cleaned = clean_telegram_message(raw_msg["text"])
+                clean_text = cleaned["news_text"]
 
                 # Skip very short / empty results
-                if len(news_text) < config.MIN_TEXT_LENGTH:
+                if len(clean_text) < config.MIN_TEXT_LENGTH:
                     skipped += 1
-                    continue
+                    return
 
-                # Merge metadata + cleaned text
+                # Merge everything together!
                 record = {
-                    **raw_msg,
-                    "news_text": news_text,
+                    "message_id": raw_msg["message_id"],
+                    "raw_text": raw_msg["text"],
+                    "news_text": clean_text,
+                    "label": None,
+                    "date": raw_msg["date"],
+                    "views": raw_msg["views"],
+                    "forwards": raw_msg["forwards"],
+                    "repost": raw_msg["repost"],
+                    "likes": raw_msg["likes"],
+                    "like_count": raw_msg["like_count"],
+                    "comment_count": raw_msg["comment_count"],
+                    "media_url": raw_msg.get("media_url"),
+                    "channel_profile_picture": raw_msg["channel"].get("profile_photo"),
+                    "channel_username": raw_msg["channel"].get("username"),
+                    "channel_id": raw_msg["channel"].get("id"),
+                    "channel_name": raw_msg["channel"].get("name"),
+                    "channel": raw_msg["channel"],
+                    "metadata": raw_msg["metadata"],
                 }
 
                 # Write to all exporters
@@ -83,14 +101,21 @@ async def run_pipeline(
                     exp.write(record)
 
                 total += 1
-                if total % 200 == 0:
+                if total % 10 == 0 or listen:
                     logger.info(f"✓ {total} records saved so far …")
 
             except Exception as e:
                 errors += 1
                 msg_id = raw_msg.get("message_id", "?")
                 logger.warning(f"Error processing message {msg_id}: {e}")
-                continue
+
+        if listen:
+            logger.info("Starting pipeline in LISTEN mode (waiting for new messages)...")
+            await scraper.listen_for_new_messages(process_msg)
+        else:
+            logger.info("Starting pipeline in BATCH mode (fetching historical messages)...")
+            async for raw_msg in scraper.scrape_all():
+                await process_msg(raw_msg)
 
     except KeyboardInterrupt:
         logger.warning("Interrupted by user — saving collected data …")
@@ -105,8 +130,6 @@ async def run_pipeline(
     logger.info(f"Time elapsed: {elapsed:.1f}s")
     logger.info("─" * 60)
 
-
-# ── CLI ───────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
         description="Telegram News Scraping Pipeline for ML Training Data"
@@ -123,9 +146,14 @@ def main():
         default=None,
         help="Override max messages per channel",
     )
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Run continuously and listen for new messages instantly",
+    )
     args = parser.parse_args()
 
-    asyncio.run(run_pipeline(channels=args.channel, limit=args.limit))
+    asyncio.run(run_pipeline(channels=args.channel, limit=args.limit, listen=args.listen))
 
 
 if __name__ == "__main__":
