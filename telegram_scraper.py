@@ -91,62 +91,66 @@ class TelegramScraper:
         logger.info(f"Fetched {count} messages total from {channel.title}")
 
     async def _format_message(self, msg: Message, channel: Channel, profile_url: str | None = None) -> dict | None:
-        """Format a Telethon Message into our standard dictionary."""
+        """Format a Telethon Message into our standard dictionary.
+        
+        Returns a FLAT document shape that matches the backend Mongoose model directly.
+        """
         # Skip media-only posts if configured
         if config.SKIP_MEDIA_ONLY and not msg.text:
             return None
 
-        has_links = False
         raw_text = msg.text or ""
-        if "http" in raw_text or "www." in raw_text or "t.me" in raw_text:
-            has_links = True
+        has_links = ("http" in raw_text or "www." in raw_text or "t.me" in raw_text)
 
-        # Reactions (Likes) - Set to None as per request
-        like_count = None
-        likes = None
-
-        # Replies (Comments) - Set to None as per request
-        comment_count = None
+        # Engagement — capture real values from Telethon
+        views = msg.views or 0
+        forwards = msg.forwards or 0
+        reply_count = 0
+        if msg.replies:
+            reply_count = msg.replies.replies or 0
 
         # Media (Images, Videos, etc.)
         media_url = None
+        video_url = None
         if msg.media:
             try:
                 from media_handler import upload_to_cloudinary
-                # Download the media. For large videos, this might be slow/memory-intensive.
-                # Cloudinary's "auto" resource type handles images, videos, and raw files.
                 media_bytes = await self.client.download_media(msg.media, bytes)
                 if media_bytes:
-                    media_url = await upload_to_cloudinary(
+                    url = await upload_to_cloudinary(
                         media_bytes, 
                         folder="news_media", 
                         public_id=f"msg_{channel.id}_{msg.id}"
                     )
+                    # Distinguish between video and photo
+                    if msg.video or msg.gif:
+                        video_url = url
+                    else:
+                        media_url = url
             except Exception as e:
                 logger.warning(f"Could not upload media for message {msg.id}: {e}")
 
+        # Build profile photo URL with correct precedence
+        channel_username = getattr(channel, "username", None)
+        channel_profile = profile_url if profile_url else None
+
+        # Build a flat document matching the backend Mongoose model
         return {
             "message_id": msg.id,
-            "text": raw_text,
+            "channel_id": channel.id,
+            "raw_text": raw_text,
             "date": msg.date.isoformat() if msg.date else None,
-            "views": None,
-            "forwards": None,
-            "repost": None,  # Set to None as per request
-            "likes": None,   # Set to None as per request
-            "like_count": None, # Set to None as per request
-            "comment_count": None, # Set to None as per request
+            "views": views,
+            "forwards": forwards,
+            "comment_count": reply_count,
             "media_url": media_url,
-            "channel": {
-                "id": channel.id,
-                "name": getattr(channel, "title", ""),
-                "username": getattr(channel, "username", None),
-                "profile_photo": profile_url or f"https://t.me/{channel.username}" if getattr(channel, "username", None) else None
-            },
-            "metadata": {
-                "has_media": bool(msg.media),
-                "has_links": has_links,
-                "language": "am"  # Defaulting to Amharic as per project scope
-            }
+            "video_url": video_url,
+            "channel_name": getattr(channel, "title", ""),
+            "channel_username": channel_username,
+            "channel_profile_pic": channel_profile,
+            "has_media": bool(msg.media),
+            "has_links": has_links,
+            "language": "am",
         }
 
     # ── Real-time Listening ───────────────────────────────────────────────
@@ -183,8 +187,8 @@ class TelegramScraper:
                             folder="channel_profiles", 
                             public_id=f"channel_{channel.id}"
                         )
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Could not resolve profile photo for listener: {e}")
 
             formatted_msg = await self._format_message(msg, channel, profile_urls.get(channel.id))
             if formatted_msg:

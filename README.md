@@ -70,7 +70,8 @@ Data is saved in `data/` in both **JSONL** and **CSV** by default:
   "raw_text": "🔴 BREAKING: ... #news https://t.me/...",
   "news_text": "BREAKING: cleaned news text here",
   "views": 4200,
-  "forwards": 180
+  "media_url": "https://cloudinary.com/...",
+  "video_url": "https://cloudinary.com/..."
 }
 ```
 

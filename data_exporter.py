@@ -8,25 +8,6 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# Fields written to the database
-FIELDS = [
-    "message_id",
-    "channel_id",
-    "channel_name",
-    "channel_profile_picture",
-    "channel_username",
-    "date",
-    "raw_text",
-    "news_text",
-    "views",
-    "forwards",
-    "repost",
-    "likes",
-    "like_count",
-    "comment_count",
-    "media_url",
-]
-
 
 # ── MongoDB ───────────────────────────────────────────────────────────────────
 class MongoDBExporter:
@@ -53,22 +34,23 @@ class MongoDBExporter:
             self._client = None
 
     def write(self, record: dict) -> None:
-        if self._client:
-            # 1. Content-based deduplication: Skip if news_text already exists in DB
-            # We only do this for significant news text (e.g. > 50 chars) to avoid 
-            # skipping standard short updates that might look similar.
-            current_text = record.get("news_text", "")
-            if len(current_text) > 50:
-                existing = self._collection.find_one({"news_text": current_text})
-                if existing:
-                    # Update potentially outdated views/metadata but keep original content
-                    # Or just skip to avoid spam. We'll skip for true deduplication.
-                    logger.debug(f"Skipping duplicate news content: {record['message_id']}")
-                    return
+        if not self._client:
+            return
 
-            # 2. ID-based Upsert (Prevents duplicates of the same exact message)
-            query = {"message_id": record["message_id"], "channel_id": record["channel_id"]}
-            self._collection.update_one(query, {"$set": record}, upsert=True)
+        # 1. Content-based deduplication for significant text (> 50 chars)
+        current_text = record.get("content", "")
+        if current_text and len(current_text) > 50:
+            existing = self._collection.find_one({"content": current_text})
+            if existing:
+                logger.debug(f"Skipping duplicate news content: {record.get('message_id')}")
+                return
+
+        # 2. ID-based Upsert (Prevents duplicates of the same exact message)
+        query = {
+            "message_id": record.get("message_id"),
+            "channel_id": record.get("channel_id"),
+        }
+        self._collection.update_one(query, {"$set": record}, upsert=True)
 
     def close(self) -> None:
         if self._client:

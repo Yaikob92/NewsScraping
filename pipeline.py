@@ -4,7 +4,7 @@ Orchestrates:
   1. Connecting to Telegram
   2. Scraping news from configured channels
   3. Cleaning each item
-  4. Exporting cleaned data to ML-ready formats
+  4. Exporting cleaned data to MongoDB
 
 Usage
 ─────
@@ -66,7 +66,7 @@ async def run_pipeline(
             nonlocal total, skipped, errors
             try:
                 # Clean the text
-                cleaned = clean_telegram_message(raw_msg["text"])
+                cleaned = clean_telegram_message(raw_msg["raw_text"])
                 clean_text = cleaned["news_text"]
 
                 # Skip very short / empty results
@@ -74,26 +74,67 @@ async def run_pipeline(
                     skipped += 1
                     return
 
-                # Merge everything together!
+                # Build source URL
+                channel_username = raw_msg.get("channel_username")
+                message_id = raw_msg.get("message_id")
+                source_url = (
+                    f"https://t.me/{channel_username}/{message_id}"
+                    if channel_username
+                    else None
+                )
+
+                # Determine media type
+                media_type = None
+                if raw_msg.get("video_url"):
+                    media_type = "video"
+                elif raw_msg.get("media_url"):
+                    media_type = "image"
+
+                # Build flat record matching the backend Mongoose model
                 record = {
-                    "message_id": raw_msg["message_id"],
-                    "raw_text": raw_msg["text"],
-                    "news_text": clean_text,
-                    "label": None,
-                    "date": raw_msg["date"],
-                    "views": raw_msg["views"],
-                    "forwards": raw_msg["forwards"],
-                    "repost": raw_msg["repost"],
-                    "likes": raw_msg["likes"],
-                    "like_count": raw_msg["like_count"],
-                    "comment_count": raw_msg["comment_count"],
-                    "media_url": raw_msg.get("media_url"),
-                    "channel_profile_picture": raw_msg["channel"].get("profile_photo"),
-                    "channel_username": raw_msg["channel"].get("username"),
-                    "channel_id": raw_msg["channel"].get("id"),
-                    "channel_name": raw_msg["channel"].get("name"),
-                    "channel": raw_msg["channel"],
-                    "metadata": raw_msg["metadata"],
+                    # Identity
+                    "message_id": message_id,
+                    "channel_id": raw_msg.get("channel_id"),
+                    "telegramId": f"{raw_msg.get('channel_id')}_{message_id}",
+                    "sourceUrl": source_url,
+
+                    # Channel info (flat)
+                    "channelName": raw_msg.get("channel_name"),
+                    "channelUsername": channel_username,
+                    "channelProfilePic": raw_msg.get("channel_profile_pic"),
+
+                    # Content (flat)
+                    "rawText": raw_msg["raw_text"],
+                    "content": clean_text,
+
+                    # Media (flat)
+                    "mediaUrl": raw_msg.get("media_url"),
+                    "videoUrl": raw_msg.get("video_url"),
+
+                    # Categorization
+                    "category": "Other",
+                    "tags": [],
+                    "language": raw_msg.get("language", "am"),
+
+                    # Engagement
+                    "views": raw_msg.get("views", 0),
+                    "forwards": raw_msg.get("forwards", 0),
+                    "commentsCount": raw_msg.get("comment_count", 0),
+                    "likesCount": 0,
+                    "bookmarksCount": 0,
+
+                    # CMS fields (omitted if None to avoid unique index null conflicts)
+                    "status": "published",
+
+                    # Source metadata
+                    "source": "telegram",
+                    "hasMedia": raw_msg.get("has_media", False),
+                    "hasLinks": raw_msg.get("has_links", False),
+                    "mediaType": media_type,
+
+                    # Dates
+                    "date": raw_msg.get("date"),
+                    "publishedAt": raw_msg.get("date"),
                 }
 
                 # Write to all exporters

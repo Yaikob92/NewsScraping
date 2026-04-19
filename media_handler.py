@@ -1,10 +1,14 @@
 """
 Media Handler
 Handles downloading media from Telegram and uploading it to Cloudinary.
+Uses run_in_executor to avoid blocking the async event loop.
 """
 
+import asyncio
 import logging
 import io
+from functools import partial
+
 import cloudinary
 import cloudinary.uploader
 import config
@@ -25,6 +29,7 @@ else:
 async def upload_to_cloudinary(file_path_or_bytes, folder="telegram_media", public_id=None):
     """
     Uploads a file or bytes to Cloudinary and returns the secure URL.
+    Uses run_in_executor to prevent blocking the event loop.
     """
     if not config.CLOUDINARY_CLOUD_NAME:
         return None
@@ -36,12 +41,18 @@ async def upload_to_cloudinary(file_path_or_bytes, folder="telegram_media", publ
         else:
             file_to_upload = file_path_or_bytes
 
-        upload_result = cloudinary.uploader.upload(
-            file_to_upload,
-            folder=folder,
-            public_id=public_id,
-            overwrite=True,
-            resource_type="auto"
+        # Run the blocking Cloudinary upload in a thread pool
+        loop = asyncio.get_event_loop()
+        upload_result = await loop.run_in_executor(
+            None,
+            partial(
+                cloudinary.uploader.upload,
+                file_to_upload,
+                folder=folder,
+                public_id=public_id,
+                overwrite=True,
+                resource_type="auto"
+            )
         )
         return upload_result.get("secure_url")
     except Exception as e:
